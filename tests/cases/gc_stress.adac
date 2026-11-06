@@ -1,0 +1,21 @@
+// Allocates tens of MB of strings/objects; the collector must recycle everything
+// that became unreachable and preserve the live list.
+class Node { int value; Node next; Node(int v) { value = v; } }
+
+void main() {
+    String big = "x";
+    for (int i = 0 to 9) big = big + big;                // 1024 bytes
+    Node list = null;
+    for (int i = 0 to 9) { Node n = new Node(i); n.next = list; list = n; }
+
+    int total = 0;
+    for (int i = 0 to 5999) {
+        String s = big + i;                              // ~1 KB throwaway
+        total += len(s);
+        Node junk = new Node(i);
+    }
+    int sum = 0;
+    Node p = list;
+    while (p != null) { sum += p.value; p = p.next; }
+    println("total=", total, " live list sum=", sum, " big=", len(big));
+}

@@ -1,0 +1,90 @@
+public class Animal {
+    protected String name;
+    private int age = 3;
+    public Animal(String name) { this.name = name; }
+    public String speak() { return "..."; }
+    public String description() { return name + " says " + speak() + " (age " + age + ")"; }
+    public void growOlder() { age++; }
+    public int getAge() { return age; }
+}
+
+public class Dog extends Animal {
+    public Dog(String n) { super(n); }
+    public String speak() { return "Woof"; }
+}
+
+public class Cat extends Animal {
+    int lives = 7;
+    public Cat(String n) { super(n); }
+    public String speak() { return "Meow"; }
+    public String description() { return super.description() + " and " + lives + " lives"; }
+}
+
+class Counter {
+    int total;
+    Counter() { total = 100; }
+    Counter(int start) { total = start; }
+    void inc() { total += 1; }
+}
+
+class MyError extends Exception {
+    public int code;
+    public MyError(String m, int c) { super(m); code = c; }
+}
+
+int divide(int a, int b) {
+    if (b == 0) throw new MyError("division by zero!", 42);
+    return a / b;
+}
+
+int testFinally() {
+    try {
+        return 1;
+    } finally {
+        println("finally of the return");
+    }
+}
+
+void main() {
+    Animal a = new Dog("Rex");
+    Animal b = new Cat("Tom");
+    b.growOlder();
+    println(a.description());
+    println(b.description());
+    Animal[] zoo = new Animal[2];
+    zoo[0] = a; zoo[1] = b;
+    for (int i = 0 to zoo.length - 1; i++) println(i, ": ", zoo[i].speak());
+    Counter c1 = new Counter();
+    Counter c2 = new Counter(5);
+    c1.inc(); c2.inc();
+    println(c1.total, " ", c2.total);
+
+    try {
+        println(divide(10, 2));
+        println(divide(1, 0));
+        println("not reached");
+    } catch (MyError e) {
+        println("caught: ", e.getMessage(), " code=", e.code);
+    } finally {
+        println("finally 1");
+    }
+    try {
+        try { throw new RuntimeException("inner"); }
+        catch (MyError e) { println("wrong"); }
+        finally { println("inner finally"); }
+    } catch (Exception e) {
+        println("outer caught: ", e.message);
+    }
+    println(testFinally());
+    int[] v = new int[5];
+    for (int i = 0 to 4; i++) v[i] = i * i;
+    int s = 0;
+    for (int i = 0 to 4; i++) s += v[i];
+    println("sum of squares = ", s, " len=", len(v));
+    for (int i = 0 to 3; i++) {
+        try {
+            if (i == 2) continue;
+            println("i=", i);
+        } finally { println("f", i); }
+    }
+}

@@ -1,0 +1,57 @@
+// ============================================================================
+//  EVERYTHING in the adaC language (MANUAL mode: no garbage collector)
+// ============================================================================
+#NOT_GARBAGE                 // turns the GC off: you allocate (setMen/new) and free (freeMEM)
+
+class Point {
+    int x; int y;
+    Point(int x, int y) { this.x = x; this.y = y; }
+    int sum() { return x + y; }
+}
+
+void main() {
+    // --- setMen = malloc, sizeof, typed pointers and indexing
+    int* v = (int*) setMen(5 * sizeof(int));
+    for (int i = 0 to 4; i++) v[i] = (i + 1) * 10;
+    println("v[0]=", v[0], " v[4]=", v[4]);
+
+    // --- << and >> move pointers (in elements); * dereferences
+    int* p = v;
+    p = p >> 2;                         // advance 2 elements
+    println("*p = ", *p, " | *(p << 1) = ", *(p << 1));
+    *p = 99;
+    p++;                                // p now points to v[3]
+    *p += 1;
+    println("v[2]=", v[2], " v[3]=", v[3]);
+
+    // --- & takes the address of a variable
+    int y = 7;
+    int* py = &y;
+    *py = *py * 2;
+    println("y = ", y);
+
+    // --- raw bytes (char*) and conversion to String
+    char* buf = (char*) setMen(8);
+    buf[0] = 'H'; buf[1] = 'e'; buf[2] = 'y'; buf[3] = '!';
+    println((String) buf, " (", len((String) buf), " bytes)");
+    freeMEM(buf);
+
+    // --- objects also need freeMEM in this mode
+    Point pt = new Point(3, 4);
+    println("point sum = ", pt.sum());
+    freeMEM(pt);
+
+    // --- strings built by concatenation are freed manually too
+    String s = "man" + "ual";
+    println(s);
+    freeMEM(s);
+
+    // --- big array and release
+    int* big = (int*) setMen(1000 * sizeof(int));
+    for (int i = 0 to 999; i++) big[i] = i;
+    int sum = 0;
+    for (int i = 0 to 999; i++) sum += big[i];
+    println("sum 0..999 = ", sum);
+    freeMEM(big);
+    freeMEM(v);
+}

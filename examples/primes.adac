@@ -1,0 +1,33 @@
+// Numeric algorithms: primes, fibonacci, square root and recursion.
+bool isPrime(int n) {
+    if (n < 2) return false;
+    for (int d = 2; d * d <= n; d++)
+        if (n % d == 0) return false;
+    return true;
+}
+
+int fib(int n) { if (n < 2) return n; return fib(n - 1) + fib(n - 2); }
+
+float newtonSqrt(float x) {
+    float r = x;
+    for (int i = 0 to 20; i++) r = (r + x / r) / 2;
+    return r;
+}
+
+void main() {
+    print("primes up to 50:");
+    for (int n = 0 to 50; n++) if (isPrime(n)) print(" ", n);
+    println();
+    println("fib(20) = ", fib(20));
+    println("sqrt(2) = ", newtonSqrt(2), " | built-in sqrt() = ", sqrt(2));
+    int[] sieve = new int[100];
+    int count = 0;
+    for (int i = 2 to 99; i++) {
+        if (sieve[i] == 0) {
+            count++;
+            for (int j = i * i; j < 100; j += i) sieve[j] = 1;
+        }
+    }
+    println("primes < 100 by the sieve: ", count);
+    println(1.0 / 3, " ", -2.5, " ", 1000000.0 * 3, " ", 0.1 + 0.2);
+}

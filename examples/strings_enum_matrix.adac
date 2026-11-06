@@ -1,0 +1,22 @@
+enum Color { RED, GREEN = 5, BLUE }
+String nameOf(int c) {
+    switch (c) { case Color.RED: return "red"; case Color.GREEN: return "green"; case Color.BLUE: return "blue"; }
+    return "?";
+}
+void main() {
+    Color c = Color.BLUE;
+    println(c, " ", nameOf(c), " ", nameOf(Color.GREEN));
+    String t = "  Hello, World adac!  ";
+    println("[", t.trim(), "] [", t.toUpperCase(), "] [", t.toLowerCase().trim(), "]");
+    println(t.contains("World"), " ", t.trim().startsWith("Hello"), " ", t.trim().endsWith("!"), " ", "".isEmpty());
+    println(t.trim().replace("o", "0"), " | ", "ab".repeat(3));
+    String[] parts = "a,bb,,ccc".split(",");
+    println(len(parts), ": ", parts[0], "|", parts[1], "|", parts[2], "|", parts[3]);
+    for (String p : "one two three".split(" ")) print("<", p, ">");
+    println();
+    int[][] m = new int[3][4];
+    for (int i = 0 to 2; i++) for (int j = 0 to 3; j++) m[i][j] = i * 10 + j;
+    println(m[2][3], " ", m.length, "x", m[0].length);
+    int[][] tri = {{1}, {2, 3}, {4, 5, 6}};
+    println(tri[2][1], " ", tri[1].length);
+}

@@ -1,0 +1,8 @@
+// ============================================================================
+//  MANUAL memory mode (#NOT_GARBAGE): no garbage collector.
+//  Everything that is allocated (new, strings, arrays, setMen) is only released by freeMEM.
+// ============================================================================
+void __gc_init() { }
+int  __alloc(int n) { return __winapi(5, __heap, 8, n); }
+int  __alloc_atomic(int n) { return __winapi(5, __heap, 8, n); }
+void __free(int p) { __winapi(6, __heap, 0, p); }

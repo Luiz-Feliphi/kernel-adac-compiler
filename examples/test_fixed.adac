@@ -1,0 +1,89 @@
+String name = "Luiz";          // String supports whole phrases, like Java
+int age = 20;
+int age2 = 20;
+const PI = (float) 3.14159;    // const + cast: a floating-point constant
+
+age = age + 1;
+area = PI * (2 * 2);           // 'area' was never declared: its type (float) is inferred
+
+#NOT_GARBAGE                   // no garbage collector: you manage memory (setMen/freeMEM)
+#definePackage: goodClass, goodClass2, XException, YException;
+
+class XException extends Exception {
+    XException(String m) { super(m); }
+}
+class YException extends Exception {
+    YException(String m) { super(m); }
+}
+
+void main() {
+    print(name, "\n", age);
+    println();
+    println("area = ", area);
+    printf("printf: %d, %f, %c, %s, %p and %x\n", 42, 2.5, 'c', "text", 4096, 255);
+
+    print("Type an age: ");
+    age2 = read();                       // read() takes the type of its target (int here)
+    if (age >= age2) {
+        println("age (", age, ") >= age2 (", age2, ")");
+        age += 1;
+    }
+
+    for (int i = 0 to 3; i++) print("a", i, " ");      // 'to': i from 0 up to 3 (inclusive)
+    println();
+    for (int i = 0; i <= 3; i++) print("b", i, " ");
+    println();
+    int k = 0;
+    for (_; k <= 2; k++) print("c", k, " ");            // uses an existing variable
+    println();
+    for (int _; j <= 2; j++) print("d", j, " ");        // declares 'j' (starts at 0) inside the for
+    println();
+
+    for (int i to 2; i++)                                // no braces: only the 1st statement is the body
+        print("e", i, " ");
+    println();
+    if (age <= age2)
+        println("age <= age2");
+    else
+        println("age > age2");
+
+    // --- manual memory (allowed because of #NOT_GARBAGE)
+    int* mem = (int*) setMen(3 * sizeof(int));
+    mem[0] = 10; mem[1] = 20; mem[2] = 30;
+    int* p = mem;
+    p = p >> 1;                                         // advance one element
+    println("*p = ", *p, ", *(p<<1) = ", *(p << 1));
+    freeMEM(mem);
+
+    // --- object orientation
+    goodClass obj = new goodClass();
+    obj.methodName();
+    goodClass2 o2 = new goodClass2();
+    println(o2.publicOne(), " ", o2.useProtected(), " ", o2.defaultOne(), " ", o2.usePrivate());
+
+    // --- exceptions
+    try {
+        throw new YException("failure of type Y");
+    } catch (XException ex) {
+        println("X: ", ex.getMessage());
+    } catch (YException ey) {
+        println("Y: ", ey.getMessage());
+    } finally {
+        println("finally always runs");
+    }
+}
+
+public class goodClass {
+    public methodName() {              // no return type = void
+        println("method of goodClass");
+    }
+}
+
+public class goodClass2 {
+    public int publicOne()   { return 1; }
+    private int privateOne()  { return 2; }
+    protected int protectedOne() { return 3; }
+    package int defaultOne()   { return 4; }       // Java's default access
+    public int usePrivate() { return privateOne() * 10; }
+    public int useProtected() { return protectedOne() * 100; }
+}

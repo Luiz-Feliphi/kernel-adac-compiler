@@ -1,0 +1,40 @@
+class Person { String name; int age; Person(String n, int a) { name = n; age = a; } }
+void main() {
+    List<int> xs = new List<int>();
+    for (int i = 1 to 20; i++) xs.add(i * i);
+    xs.push_back(999);
+    println(xs.size(), " ", xs.get(4), " ", xs[19], " ", xs.pop(), " ", xs.size());
+    xs[0] = -1;
+    xs.insert(1, 77);
+    xs.removeAt(2);
+    int sum = 0;
+    for (int x : xs) sum += x;
+    println("sum=", sum, " idx(77)=", xs.indexOf(77), " has 400? ", xs.contains(400));
+
+    List<String> names = new List<String>();
+    names.add("ann"); names.add("bea"); names.add("carl");
+    for (String n : names) print(n.toUpperCase(), " ");
+    println();
+    List<float> fs = new List<float>();
+    fs.add(1.5); fs.add(2);
+    println(fs[0] + fs[1]);
+
+    List<Person> ps = new List<Person>();
+    ps.add(new Person("Zoe", 30)); ps.add(new Person("Li", 25));
+    for (Person p : ps) println(p.name, ":", p.age);
+
+    List<List<int>> grid = new List<List<int>>();
+    for (int i = 0 to 2; i++) { List<int> row = new List<int>(); for (int j = 0 to i; j++) row.add(j); grid.add(row); }
+    println(grid.size(), " ", grid[2].size(), " ", grid[2][2]);
+
+    Map<String, int> ages = new Map<String, int>();
+    ages["ann"] = 30; ages.put("bea", 25); ages["carl"] = 41;
+    for (int i = 0 to 99; i++) ages["k" + i] = i;
+    println(ages.size(), " ", ages["ann"], " ", ages.get("bea"), " ", ages.has("zed"), " ", ages["zed"]);
+    ages["ann"] = 31;
+    println(ages.remove("bea"), " ", ages.size(), " ", ages.has("bea"), " ", ages["ann"], " ", ages["k57"]);
+    println(len(ages.keys()));
+    Map<String, float> prices = new Map<String, float>();
+    prices["bread"] = 0.5; prices["milk"] = 4.25;
+    println(prices["bread"] + prices["milk"]);
+}

@@ -1,0 +1,6 @@
+class P { int v; P(int v) { this.v = v; } }
+void main() {
+    int soma = 0;
+    for (int i = 0; i < 3000000; i++) { P p = new P(i); soma += p.v & 7; }
+    println(soma);
+}

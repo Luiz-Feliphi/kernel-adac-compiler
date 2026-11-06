@@ -1,0 +1,57 @@
+// Object-oriented example: inheritance, virtual methods, exceptions and the garbage collector.
+class InsufficientFunds extends Exception {
+    public float missing;
+    public InsufficientFunds(String msg, float missing) { super(msg); this.missing = missing; }
+}
+
+class Account {
+    protected String owner;
+    protected float balance;
+    public Account(String owner, float initial) { this.owner = owner; balance = initial; }
+
+    public void deposit(float v) { balance += v; }
+    public void withdraw(float v) {
+        if (v > balance) throw new InsufficientFunds("insufficient funds for " + owner, v - balance);
+        balance -= v;
+    }
+    public float monthlyRate() { return 0.0; }
+    public String getOwner() { return owner; }
+    public float getBalance() { return balance; }
+    public String summary() { return owner + ": $ " + balance; }
+}
+
+class SavingsAccount extends Account {
+    public SavingsAccount(String o, float s) { super(o, s); }
+    public float monthlyRate() { return 0.005; }
+    public void earnMonth() { balance += balance * monthlyRate(); }
+}
+
+void main() {
+    Account[] accounts = new Account[2];
+    accounts[0] = new Account("Ann", 100);
+    accounts[1] = new SavingsAccount("Bob", 1000);
+
+    for (int i = 0 to accounts.length - 1; i++) {
+        Account c = accounts[i];
+        c.deposit(50);
+        try {
+            c.withdraw(300);
+            println("withdrawal ok -> ", c.summary());
+        } catch (InsufficientFunds e) {
+            println("error: ", e.getMessage(), " (missing ", e.missing, ")");
+        } finally {
+            println("monthly rate: ", c.monthlyRate());
+        }
+    }
+    SavingsAccount p = (SavingsAccount) accounts[1];
+    for (int m = 1 to 3; m++) p.earnMonth();
+    printf("%s earned: %.2f\n", p.getOwner(), p.getBalance());
+
+    // many throwaway accounts: the garbage collector recycles the memory
+    float total = 0;
+    for (int i = 0 to 9999) {
+        Account tmp = new Account("temp" + i, i);
+        total += tmp.getBalance();
+    }
+    println("temporary total: ", total);
+}

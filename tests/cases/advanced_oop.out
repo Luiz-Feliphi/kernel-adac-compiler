@@ -1,0 +1,6 @@
+[square p=8.0] area=4.0
+[circle p=6.28318] area=3.14159
+sum=21.56636
+[square p=4.0]
+created=5 | Util.twice(21)=42 | 21
+201

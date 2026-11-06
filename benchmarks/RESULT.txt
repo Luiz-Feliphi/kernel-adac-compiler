@@ -1,0 +1,16 @@
+(Wine start-up discounted from adaC times: 10 ms)
+
+test         C -O2    C -O0    adaC   Python   result (same?)
+fib          0.02s    0.08s    0.09s    0.91s   9227465 OK
+loop         0.03s    0.08s    0.08s    1.45s   134999988 OK
+pi           0.03s    0.07s    0.15s    1.10s   3.141593 OK
+sieve        0.06s    0.09s    0.16s    0.68s   348513 OK
+objects      0.00s    0.04s    0.26s    0.41s   10500000 OK
+
+Times slower than C -O2 (lower = better):
+test         C -O0    adaC   Python
+fib           4.5x     5.3x    52.1x
+loop          2.6x     2.6x    46.5x
+pi            2.6x     5.6x    42.2x
+sieve         1.3x     2.5x    10.7x
+objects      18.3x   110.0x   175.7x

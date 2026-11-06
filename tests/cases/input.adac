@@ -1,0 +1,9 @@
+void main() {
+    print("Name: ");
+    String name = read();
+    print("Age: ");
+    int age = read();
+    print("Height: ");
+    float h = read();
+    println("Hello ", name, ", next year you will be ", age + 1, " and height ", h * 2);
+}

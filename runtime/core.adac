@@ -1,0 +1,625 @@
+// ============================================================================
+//  adaC language runtime - common part (written in adaC).
+//  Compiled together with every program. Names starting with "__" are reserved.
+//  Intrinsics available only here: __winapi, __peek8/64, __poke8/64, __sp,
+//  __gbegin/__gend, __memcpy.   __winapi indices:
+//   0 ExitProcess  1 GetStdHandle  2 WriteFile  3 ReadFile
+//   4 GetProcessHeap  5 HeapAlloc  6 HeapFree  7 SetConsoleOutputCP
+// ============================================================================
+
+int __heap;  int __stdin;  int __stdout;  int __stderr;
+int __buf;   int __fend;   int __rbuf;
+int __stack_base;          // RSP at program entry (stack base for the GC)
+int __exc;                 // exception in flight
+int __handler;             // top of the try/catch handler chain
+
+// ---------------------------------------------------------------- exceptions
+class Exception {
+    public String message;
+    public Exception() { message = ""; }
+    public Exception(String m) { message = m; }
+    public String getMessage() { return message; }
+}
+class RuntimeException extends Exception {
+    public RuntimeException(String m) { super(m); }
+}
+
+bool __instanceof(int obj, int vt) {
+    if (obj == 0) return false;
+    int v = __peek64(obj);
+    while (v != 0) {
+        if (v == vt) return true;
+        v = __peek64(v);
+    }
+    return false;
+}
+
+// ---------------------------------------------------------------- system
+void __exit(int code) { __winapi(0, code); }
+
+void __write(int h, int p, int n) {
+    if (n <= 0) return;
+    __winapi(2, h, p, n, __buf + 192, 0);
+}
+void __ewrite(String s) {
+    if (s == null) s = "null";
+    int n = 0;
+    while (__peek8((int) s + n) != 0) n++;
+    __write(__stderr, (int) s, n);
+}
+void __die(String msg) {
+    __ewrite("Runtime error: ");
+    __ewrite(msg);
+    __ewrite("\n");
+    __exit(1);
+}
+void __panic_null() { __die("access to a null reference"); }
+void __panic_bounds() { __die("array index out of bounds (or negative size)"); }
+void __panic_div() { __die("division by zero"); }
+void __uncaught(Exception e) {
+    __ewrite("Unhandled exception: ");
+    __ewrite(e.message);
+    __ewrite("\n");
+    __exit(1);
+}
+
+void __setup() {
+    __heap = __winapi(4);
+    __stdin = __winapi(1, -10);
+    __stdout = __winapi(1, -11);
+    __stderr = __winapi(1, -12);
+    __buf = __winapi(5, __heap, 8, 256);
+    __rbuf = __winapi(5, __heap, 8, 4096);
+    __winapi(7, 65001);                 // console in UTF-8
+    __gc_init();
+}
+
+// ---------------------------------------------------------------- strings
+int __strlen(String s) {
+    if (s == null) return 0;
+    int p = (int) s;
+    int n = 0;
+    while (__peek8(p + n) != 0) n++;
+    return n;
+}
+
+String __str_from(int p, int len) {
+    int q = __alloc_atomic(len + 1);
+    __memcpy(q, p, len);
+    return (String) q;
+}
+
+String __concat(String a, String b) {
+    if (a == null) a = "null";
+    if (b == null) b = "null";
+    int la = __strlen(a);
+    int lb = __strlen(b);
+    int p = __alloc_atomic(la + lb + 1);
+    __memcpy(p, (int) a, la);
+    __memcpy(p + la, (int) b, lb);
+    return (String) p;
+}
+
+bool __streq(String a, String b) {
+    if ((int) a == (int) b) return true;
+    if ((int) a == 0 || (int) b == 0) return false;
+    int i = 0;
+    while (true) {
+        int x = __peek8((int) a + i);
+        int y = __peek8((int) b + i);
+        if (x != y) return false;
+        if (x == 0) return true;
+        i++;
+    }
+}
+
+int __strcmp(String a, String b) {
+    if (a == null) a = "";
+    if (b == null) b = "";
+    int i = 0;
+    while (true) {
+        int x = __peek8((int) a + i);
+        int y = __peek8((int) b + i);
+        if (x != y) return x - y;
+        if (x == 0) return 0;
+        i++;
+    }
+}
+
+int __indexof(String s, String t) {
+    int ls = __strlen(s);
+    int lt = __strlen(t);
+    int i = 0;
+    while (i + lt <= ls) {
+        int j = 0;
+        while (j < lt && __peek8((int) s + i + j) == __peek8((int) t + j)) j++;
+        if (j == lt) return i;
+        i++;
+    }
+    return -1;
+}
+
+String __substr(String s, int a, int b) {
+    int n = __strlen(s);
+    if (a < 0) a = 0;
+    if (b > n) b = n;
+    if (b < a) b = a;
+    return __str_from((int) s + a, b - a);
+}
+
+int __atoi(String s) {
+    if (s == null) return 0;
+    int p = (int) s;
+    int i = 0;
+    while (__peek8(p + i) == 32 || __peek8(p + i) == 9) i++;
+    bool neg = false;
+    if (__peek8(p + i) == 45) { neg = true; i++; }
+    else if (__peek8(p + i) == 43) i++;
+    int v = 0;
+    while (__peek8(p + i) >= 48 && __peek8(p + i) <= 57) {
+        v = v * 10 + (__peek8(p + i) - 48);
+        i++;
+    }
+    if (neg) return -v;
+    return v;
+}
+
+float __atof(String s) {
+    if (s == null) return 0.0;
+    int p = (int) s;
+    int i = 0;
+    while (__peek8(p + i) == 32 || __peek8(p + i) == 9) i++;
+    bool neg = false;
+    if (__peek8(p + i) == 45) { neg = true; i++; }
+    else if (__peek8(p + i) == 43) i++;
+    float v = 0.0;
+    while (__peek8(p + i) >= 48 && __peek8(p + i) <= 57) {
+        v = v * 10.0 + (float) (__peek8(p + i) - 48);
+        i++;
+    }
+    if (__peek8(p + i) == 46 || __peek8(p + i) == 44) {
+        i++;
+        float scale = 0.1;
+        while (__peek8(p + i) >= 48 && __peek8(p + i) <= 57) {
+            v = v + scale * (float) (__peek8(p + i) - 48);
+            scale = scale / 10.0;
+            i++;
+        }
+    }
+    if (neg) return -v;
+    return v;
+}
+
+// ---------------------------------------------------------------- formatting
+// All of them write into __buf, back to front, ending at __fend.
+int __fmt_int(int n) {
+    __fend = __buf + 128;
+    int p = __fend;
+    bool neg = n < 0;
+    if (n == 0) { p--; __poke8(p, 48); }
+    while (n != 0) {
+        int d = n % 10;
+        if (d < 0) d = -d;
+        p--;
+        __poke8(p, 48 + d);
+        n = n / 10;
+    }
+    if (neg) { p--; __poke8(p, 45); }
+    return p;
+}
+
+int __fmt_hex(int n, int prefix) {
+    __fend = __buf + 128;
+    int p = __fend;
+    if (n == 0) { p--; __poke8(p, 48); }
+    int i = 0;
+    while (i < 16 && n != 0) {
+        int d = n & 15;
+        p--;
+        if (d < 10) __poke8(p, 48 + d); else __poke8(p, 87 + d);
+        n = (n >> 4) & 0x0FFFFFFFFFFFFFFF;
+        i++;
+    }
+    if (prefix != 0) { p--; __poke8(p, 120); p--; __poke8(p, 48); }
+    return p;
+}
+
+int __fmt_char(int c) {
+    int e = __buf + 128;
+    __fend = e;
+    if (c < 128) { __poke8(e - 1, c); return e - 1; }
+    if (c < 2048) {
+        __poke8(e - 2, 192 | (c >> 6));
+        __poke8(e - 1, 128 | (c & 63));
+        return e - 2;
+    }
+    if (c < 65536) {
+        __poke8(e - 3, 224 | (c >> 12));
+        __poke8(e - 2, 128 | ((c >> 6) & 63));
+        __poke8(e - 1, 128 | (c & 63));
+        return e - 3;
+    }
+    __poke8(e - 4, 240 | (c >> 18));
+    __poke8(e - 3, 128 | ((c >> 12) & 63));
+    __poke8(e - 2, 128 | ((c >> 6) & 63));
+    __poke8(e - 1, 128 | (c & 63));
+    return e - 4;
+}
+
+// prec < 0: automatic format (up to 6 decimals, no trailing zeros)
+int __fmt_float(float x, int prec) {
+    __fend = __buf + 128;
+    int p = __fend;
+    if (x != x) { p = p - 3; __poke8(p, 110); __poke8(p + 1, 97); __poke8(p + 2, 110); return p; }
+    bool neg = x < 0.0;
+    if (neg) x = -x;
+    if (x > 9000000000000000000.0) {
+        p = p - 3; __poke8(p, 105); __poke8(p + 1, 110); __poke8(p + 2, 102);
+        if (neg) { p--; __poke8(p, 45); }
+        return p;
+    }
+    bool autop = prec < 0;
+    if (autop) prec = 6;
+    if (prec > 15) prec = 15;
+    float scale = 1.0;
+    int k = 0;
+    while (k < prec) { scale = scale * 10.0; k++; }
+    int ip = (int) x;
+    float fp = x - (float) ip;
+    int fi = (int) (fp * scale + 0.5);
+    int si = (int) scale;
+    if (fi >= si) { ip = ip + 1; fi = fi - si; }
+    int j = 0;
+    while (j < prec) {
+        p--;
+        __poke8(p, 48 + fi % 10);
+        fi = fi / 10;
+        j++;
+    }
+    if (prec > 0) { p--; __poke8(p, 46); }
+    if (ip == 0) { p--; __poke8(p, 48); }
+    while (ip != 0) { p--; __poke8(p, 48 + ip % 10); ip = ip / 10; }
+    if (neg) { p--; __poke8(p, 45); }
+    if (autop) {
+        while (__peek8(__fend - 1) == 48 && __peek8(__fend - 2) != 46) __fend--;
+    }
+    return p;
+}
+
+// ---------------------------------------------------------------- output
+void __print_str(String s) {
+    if (s == null) s = "null";
+    __write(__stdout, (int) s, __strlen(s));
+}
+void __print_int(int n) { int p = __fmt_int(n); __write(__stdout, p, __fend - p); }
+void __print_char(int c) { int p = __fmt_char(c); __write(__stdout, p, __fend - p); }
+void __print_hex(int n, int prefix) { int p = __fmt_hex(n, prefix); __write(__stdout, p, __fend - p); }
+void __print_float(float x, int prec) { int p = __fmt_float(x, prec); __write(__stdout, p, __fend - p); }
+void __print_bool(bool b) { if (b) __print_str("true"); else __print_str("false"); }
+void __print_nl() { __print_str("\n"); }
+
+// ---------------------------------------------------------------- conversions
+String __itoa(int n) { int p = __fmt_int(n); return __str_from(p, __fend - p); }
+String __ctoa(int c) { int p = __fmt_char(c); return __str_from(p, __fend - p); }
+String __ptoa(int n) { int p = __fmt_hex(n, 1); return __str_from(p, __fend - p); }
+String __ftoa(float x, int prec) { int p = __fmt_float(x, prec); return __str_from(p, __fend - p); }
+String __btoa(bool b) { if (b) return "true"; return "false"; }
+
+// ---------------------------------------------------------------- input
+String __read_line() {
+    int n = 0;
+    while (n < 4095) {
+        int r = __winapi(3, __stdin, __rbuf + n, 1, __buf + 192, 0) & 0xFFFFFFFF;
+        int got = __peek64(__buf + 192) & 0xFFFFFFFF;
+        if (r == 0 || got == 0) break;
+        if (__peek8(__rbuf + n) == 10) break;
+        n++;
+    }
+    if (n > 0 && __peek8(__rbuf + n - 1) == 13) n--;
+    return __str_from(__rbuf, n);
+}
+int __read_int() { return __atoi(__read_line()); }
+float __read_float() { return __atof(__read_line()); }
+
+// ---------------------------------------------------------------- math
+int   __absi(int x) { if (x < 0) return -x; return x; }
+float __absf(float x) { if (x < 0.0) return -x; return x; }
+int   __mini(int a, int b) { if (a < b) return a; return b; }
+int   __maxi(int a, int b) { if (a > b) return a; return b; }
+float __minf(float a, float b) { if (a < b) return a; return b; }
+float __maxf(float a, float b) { if (a > b) return a; return b; }
+float __powi(float b, int e) {
+    bool neg = e < 0;
+    if (neg) e = -e;
+    float r = 1.0;
+    while (e > 0) {
+        if ((e & 1) != 0) r = r * b;
+        b = b * b;
+        e = e >> 1;
+    }
+    if (neg) return 1.0 / r;
+    return r;
+}
+
+// ---------------------------------------------------------------- printf with width
+String __xtoa(int n, int prefix) { int p = __fmt_hex(n, prefix); return __str_from(p, __fend - p); }
+
+// flags: bit0 = left-align ('-'), bit1 = zero-fill ('0')
+void __print_pad(String s, int width, int flags) {
+    int n = __strlen(s);
+    int pad = width - n;
+    if (pad < 0) pad = 0;
+    int c = 32;
+    if ((flags & 2) != 0 && (flags & 1) == 0) c = 48;
+    if ((flags & 1) == 0) {
+        if (c == 48 && n > 0 && __peek8((int) s) == 45) { __print_str("-"); s = __substr(s, 1, n); }
+        for (int i = 0; i < pad; i++) __print_char(c);
+    }
+    __print_str(s);
+    if ((flags & 1) != 0) for (int i = 0; i < pad; i++) __print_char(32);
+}
+
+// ---------------------------------------------------------------- matrices
+int __newarr2(int n, int m) {
+    if (n < 0 || m < 0) __panic_bounds();
+    int outer = __alloc(8 * n + 8);
+    __poke64(outer, n);
+    for (int i = 0; i < n; i++) {
+        int row = __alloc(8 * m + 8);
+        __poke64(row, m);
+        __poke64(outer + 8 + 8 * i, row);
+    }
+    return outer;
+}
+
+// ---------------------------------------------------------------- String methods
+bool __isws(int c) { return c == 32 || c == 9 || c == 10 || c == 13; }
+
+String __trim(String s) {
+    int n = __strlen(s);
+    int a = 0;
+    while (a < n && __isws(__peek8((int) s + a))) a++;
+    int b = n;
+    while (b > a && __isws(__peek8((int) s + b - 1))) b--;
+    return __substr(s, a, b);
+}
+String __upper(String s) {
+    int n = __strlen(s);
+    int p = __alloc_atomic(n + 1);
+    for (int i = 0; i < n; i++) {
+        int c = __peek8((int) s + i);
+        if (c >= 97 && c <= 122) c = c - 32;
+        __poke8(p + i, c);
+    }
+    return (String) p;
+}
+String __lower(String s) {
+    int n = __strlen(s);
+    int p = __alloc_atomic(n + 1);
+    for (int i = 0; i < n; i++) {
+        int c = __peek8((int) s + i);
+        if (c >= 65 && c <= 90) c = c + 32;
+        __poke8(p + i, c);
+    }
+    return (String) p;
+}
+bool __isempty(String s) { return __strlen(s) == 0; }
+bool __contains(String s, String t) { return __indexof(s, t) >= 0; }
+bool __startswith(String s, String t) {
+    int lt = __strlen(t);
+    if (lt > __strlen(s)) return false;
+    for (int i = 0; i < lt; i++) if (__peek8((int) s + i) != __peek8((int) t + i)) return false;
+    return true;
+}
+bool __endswith(String s, String t) {
+    int lt = __strlen(t);
+    int off = __strlen(s) - lt;
+    if (off < 0) return false;
+    for (int i = 0; i < lt; i++) if (__peek8((int) s + off + i) != __peek8((int) t + i)) return false;
+    return true;
+}
+String __repeat(String s, int n) {
+    int ls = __strlen(s);
+    if (n < 0) n = 0;
+    int p = __alloc_atomic(ls * n + 1);
+    for (int i = 0; i < n; i++) __memcpy(p + i * ls, (int) s, ls);
+    return (String) p;
+}
+String __replace(String s, String a, String b) {
+    int la = __strlen(a);
+    if (la == 0) return s;
+    int lb = __strlen(b);
+    int ls = __strlen(s);
+    int cnt = 0;
+    int i = 0;
+    while (i + la <= ls) {
+        if (__startswith(__substr(s, i, i + la), a)) { cnt++; i = i + la; } else i++;
+    }
+    int p = __alloc_atomic(ls + cnt * (lb - la) + 1);
+    int o = 0;
+    i = 0;
+    while (i < ls) {
+        if (i + la <= ls && __streq(__substr(s, i, i + la), a)) { __memcpy(p + o, (int) b, lb); o = o + lb; i = i + la; }
+        else { __poke8(p + o, __peek8((int) s + i)); o++; i++; }
+    }
+    return (String) p;
+}
+String[] __split(String s, String sep) {
+    int ls = __strlen(s);
+    int lp = __strlen(sep);
+    int cnt = 1;
+    if (lp > 0) {
+        int i = 0;
+        while (i + lp <= ls) {
+            if (__streq(__substr(s, i, i + lp), sep)) { cnt++; i = i + lp; } else i++;
+        }
+    }
+    int arr = __alloc(8 * cnt + 8);
+    __poke64(arr, cnt);
+    int start = 0;
+    int k = 0;
+    int i = 0;
+    while (lp > 0 && i + lp <= ls) {
+        if (__streq(__substr(s, i, i + lp), sep)) {
+            __poke64(arr + 8 + 8 * k, (int) __substr(s, start, i));
+            k++; i = i + lp; start = i;
+        } else i++;
+    }
+    __poke64(arr + 8 + 8 * k, (int) __substr(s, start, ls));
+    return (String[]) arr;
+}
+
+// ---------------------------------------------------------------- interfaces
+// vtable: [parent][itable][methods...]    itable: [n][id, function]*
+int __ifind(int vt, int mid) {
+    int t = __peek64(vt + 8);
+    int n = __peek64(t);
+    int i = 0;
+    while (i < n) {
+        if (__peek64(t + 8 + 16 * i) == mid) return __peek64(t + 16 + 16 * i);
+        i++;
+    }
+    __die("interface method not found");
+    return 0;
+}
+
+// ---------------------------------------------------------------- List<T> e Map<String,T>
+// The parameters/returns of type 'ptr' below stand for the type T; the compiler
+// replaces them with the element type (List<int>, Map<String, float>, ...).
+class List {
+    int data; int n; int cap;
+    public List() { data = 0; n = 0; cap = 0; }
+    private void grow() {
+        int nc = cap * 2;
+        if (nc < 8) nc = 8;
+        int nd = __alloc(8 * nc);
+        if (n > 0) __memcpy(nd, data, 8 * n);
+        data = nd;
+        cap = nc;
+    }
+    public void add(ptr x) { if (n == cap) grow(); __poke64(data + 8 * n, (int) x); n++; }
+    public void push_back(ptr x) { add(x); }
+    public ptr get(int i) {
+        if (i < 0 || i >= n) __panic_bounds();
+        return (ptr) __peek64(data + 8 * i);
+    }
+    public void set(int i, ptr x) {
+        if (i < 0 || i >= n) __panic_bounds();
+        __poke64(data + 8 * i, (int) x);
+    }
+    public int size() { return n; }
+    public bool isEmpty() { return n == 0; }
+    public void clear() { n = 0; }
+    public ptr pop() {
+        if (n == 0) __panic_bounds();
+        n--;
+        return (ptr) __peek64(data + 8 * n);
+    }
+    public ptr removeAt(int i) {
+        if (i < 0 || i >= n) __panic_bounds();
+        int r = __peek64(data + 8 * i);
+        for (int k = i; k < n - 1; k++) __poke64(data + 8 * k, __peek64(data + 8 * (k + 1)));
+        n--;
+        return (ptr) r;
+    }
+    public void insert(int i, ptr x) {
+        if (i < 0 || i > n) __panic_bounds();
+        if (n == cap) grow();
+        for (int k = n; k > i; k--) __poke64(data + 8 * k, __peek64(data + 8 * (k - 1)));
+        __poke64(data + 8 * i, (int) x);
+        n++;
+    }
+    public int indexOf(ptr x) {
+        for (int k = 0; k < n; k++) if (__peek64(data + 8 * k) == (int) x) return k;
+        return -1;
+    }
+    public bool contains(ptr x) { return indexOf(x) >= 0; }
+}
+
+class Map {
+    int ks; int vs; int n; int cap;
+    public Map() { ks = 0; vs = 0; n = 0; cap = 0; }
+    private int hash(String k) {
+        int h = 7;
+        int p = (int) k;
+        int i = 0;
+        int c = __peek8(p);
+        while (c != 0) { h = h * 31 + c; i++; c = __peek8(p + i); }
+        return h & 0x3FFFFFFFFFFFFFFF;
+    }
+    private int find(String k) {
+        if (cap == 0) return -1;
+        int i = hash(k) & (cap - 1);
+        while (__peek64(ks + 8 * i) != 0) {
+            if (__streq((String) __peek64(ks + 8 * i), k)) return i;
+            i = (i + 1) & (cap - 1);
+        }
+        return -1;
+    }
+    private void putw(String k, int v) {
+        if ((n + 1) * 2 > cap) rehash();
+        int i = hash(k) & (cap - 1);
+        while (__peek64(ks + 8 * i) != 0) {
+            if (__streq((String) __peek64(ks + 8 * i), k)) { __poke64(vs + 8 * i, v); return; }
+            i = (i + 1) & (cap - 1);
+        }
+        __poke64(ks + 8 * i, (int) k);
+        __poke64(vs + 8 * i, v);
+        n++;
+    }
+    private void rehash() {
+        int oc = cap;
+        int ok = ks;
+        int ov = vs;
+        if (cap == 0) cap = 8; else cap = cap * 2;
+        ks = __alloc(8 * cap);
+        vs = __alloc(8 * cap);
+        n = 0;
+        for (int i = 0; i < oc; i++) {
+            int k = __peek64(ok + 8 * i);
+            if (k != 0) putw((String) k, __peek64(ov + 8 * i));
+        }
+    }
+    public void put(String k, ptr v) { putw(k, (int) v); }
+    public ptr get(String k) {
+        int i = find(k);
+        if (i < 0) return (ptr) 0;
+        return (ptr) __peek64(vs + 8 * i);
+    }
+    public bool has(String k) { return find(k) >= 0; }
+    public int size() { return n; }
+    public bool isEmpty() { return n == 0; }
+    public ptr remove(String k) {
+        int i = find(k);
+        if (i < 0) return (ptr) 0;
+        int old = __peek64(vs + 8 * i);
+        __poke64(ks + 8 * i, 0);
+        __poke64(vs + 8 * i, 0);
+        n--;
+        int j = (i + 1) & (cap - 1);
+        while (__peek64(ks + 8 * j) != 0) {            // re-insert the rest of the cluster (linear probing)
+            int k2 = __peek64(ks + 8 * j);
+            int v2 = __peek64(vs + 8 * j);
+            __poke64(ks + 8 * j, 0);
+            __poke64(vs + 8 * j, 0);
+            n--;
+            putw((String) k2, v2);
+            j = (j + 1) & (cap - 1);
+        }
+        return (ptr) old;
+    }
+    public void clear() {
+        n = 0;
+        if (cap > 0) { ks = __alloc(8 * cap); vs = __alloc(8 * cap); }
+    }
+    public String[] keys() {
+        int arr = __alloc(8 * n + 8);
+        __poke64(arr, n);
+        int k = 0;
+        for (int i = 0; i < cap; i++) {
+            int key = __peek64(ks + 8 * i);
+            if (key != 0) { __poke64(arr + 8 + 8 * k, key); k++; }
+        }
+        return (String[]) arr;
+    }
+}

@@ -1,0 +1,5 @@
+import "util.adac";
+void main() {
+    Point p = new Point(3, 4);
+    println(twice(p.sum()), " ", Level.HIGH);
+}

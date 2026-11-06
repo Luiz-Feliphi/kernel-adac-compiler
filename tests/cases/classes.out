@@ -1,0 +1,20 @@
+Rex says Woof (age 3)
+Tom says Meow (age 4) and 7 lives
+0: Woof
+1: Meow
+101 6
+5
+caught: division by zero! code=42
+finally 1
+inner finally
+outer caught: inner
+finally of the return
+1
+sum of squares = 30 len=5
+i=0
+f0
+i=1
+f1
+f2
+i=3
+f3

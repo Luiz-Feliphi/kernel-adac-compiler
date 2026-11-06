@@ -1,0 +1,14 @@
+// print evaluates ALL arguments (left to right) before printing anything;
+// printf supports width, '-' and '0' flags; assignment typos produce warnings.
+int n = 0;
+int f() { n++; print("[f", n, "]"); return n; }
+void main() {
+    println("a=", f(), " b=", f(), " c=", f());
+    printf("%5d|%-5d|%05d|%8.2f|%s|%6s|%x\n", 42, 42, 42, 3.14159, "ab", "cd", 255);
+    area = 5;
+    println(area);
+    areaa = 7;          // typo: the compiler warns about it
+    var z = 3;
+    println(z);
+    unused = 9;         // never read: warning
+}

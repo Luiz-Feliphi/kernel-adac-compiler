@@ -1,0 +1,29 @@
+#NOT_GARBAGE    // manual memory: no collector, you release with freeMEM
+class Box { int x; Box(int x) { this.x = x; } }
+
+void main() {
+    int* v = (int*) setMen(5 * sizeof(int));        // 5 integers
+    for (int i = 0 to 4; i++) v[i] = (i + 1) * 10;
+    int* p = v;
+    p = p >> 2;                                      // advance 2 elements
+    println(*p, " ", v[4], " ", *(p << 1));
+    *p = 99;
+    println(v[2]);
+    int y = 7;
+    int* py = &y;
+    *py = *py + 1;
+    println(y);
+    freeMEM(v);
+
+    char* buf = (char*) setMen(4);
+    buf[0] = 'H'; buf[1] = 'i'; buf[2] = '!';
+    println((String) buf);
+    freeMEM(buf);
+
+    Box c = new Box(5);
+    println(c.x);
+    freeMEM(c);
+    String t = "a" + "b";
+    println(t);
+    freeMEM(t);
+}

@@ -1,0 +1,10 @@
+1 = sunday
+4 = ordinary day
+7 = saturday
+15 5 1 -1
+stopping
+i=0 i=2 
+biggest=9 smallest=-3 abs(-7)=7 abs(-2.5)=2.5
+sum f=6.5 pow(2,10)=1024.0 pow(2,-2)=0.25
+a3 b3 c4 
+dogs=2 | first is Cat? false | is Animal? true

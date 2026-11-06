@@ -1,0 +1,48 @@
+interface Drawable { String draw(); }
+interface Measurable { float area(); }
+interface Shape extends Drawable, Measurable { }
+
+abstract class Base implements Shape {
+    protected String name;
+    static int created = 0;
+    Base(String n) { name = n; created++; }
+    abstract float perimeter();                 // no body
+    public String draw() { return "[" + name + " p=" + perimeter() + "]"; }
+}
+
+class Square extends Base {
+    float side;
+    Square(float side) { super("square"); this.side = side; }
+    float perimeter() { return 4 * side; }
+    public float area() { return side * side; }
+}
+class Circle extends Base {
+    float r;
+    Circle(float r) { super("circle"); this.r = r; }
+    float perimeter() { return 2 * 3.14159 * r; }
+    public float area() { return 3.14159 * r * r; }
+}
+
+class Util {
+    static int times = 10;
+    static int twice(int x) { return x * 2; }
+    static int use() { return twice(times) + 1; }
+}
+
+float sumAreas(Measurable[] ms) {
+    float t = 0;
+    for (Measurable m : ms) t += m.area();
+    return t;
+}
+
+void main() {
+    Shape[] shapes = {new Square(2), new Circle(1)};
+    for (Shape s : shapes) println(s.draw(), " area=", s.area());
+    Measurable[] ms = {new Square(3), new Circle(2)};
+    println("sum=", sumAreas(ms));
+    Drawable d = new Square(1);
+    println(d.draw());
+    println("created=", Base.created, " | Util.twice(21)=", Util.twice(21), " | ", Util.use());
+    Util.times = 100;
+    println(Util.use());
+}

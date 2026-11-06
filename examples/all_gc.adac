@@ -1,0 +1,151 @@
+// ============================================================================
+//  EVERYTHING in the adaC language (default mode: GARBAGE COLLECTOR)
+// ============================================================================
+#definePackage: Shape, Circle, Rectangle, GeometryError;   // exported classes
+
+// ---------- globals, const and type inference ----------
+String title = "adaC Demo";
+int counter = 0;
+const PI = (float) 3.14159;          // const float
+const MAX = 3;                       // const int (inferred)
+radius = 2;                          // inferred as int (global)
+area = PI * (radius * radius);       // inferred as float (global)
+counter = counter + 1;               // top-level statements run before main
+
+// ---------- classes: inheritance, access, super, overloading by arity ----------
+class GeometryError extends Exception {
+    public int code;
+    public GeometryError(String msg, int code) { super(msg); this.code = code; }
+}
+
+class Shape {
+    protected String name;             // visible in subclasses
+    private int id;                    // only inside Shape
+    package int tag = 7;               // Java's default access
+    Shape(String name) { this.name = name; id = 100; }
+    Shape() { name = "unnamed"; id = 0; }                // another constructor (0 parameters)
+    public float area() { return 0.0; }                  // overridden below (virtual)
+    public String describe() { return name + " #" + id + " area=" + area(); }
+    public void move(int dx) { id += dx; }
+    public void move(int dx, int dy) { id += dx + dy; }  // overload by number of parameters
+}
+
+class Circle extends Shape {
+    float r;
+    Circle(float r) { super("circle"); this.r = r; }
+    public float area() { return PI * r * r; }
+}
+
+class Rectangle extends Shape {
+    float w; float h;
+    Rectangle(float w, float h) {
+        super("rectangle");
+        if (w <= 0 || h <= 0) throw new GeometryError("invalid side", 22);
+        this.w = w; this.h = h;
+    }
+    public float area() { return w * h; }
+    public String describe() { return "[" + super.describe() + "]"; }   // super.method()
+}
+
+// ---------- functions ----------
+int factorial(int n) { return n <= 1 ? 1 : n * factorial(n - 1); }
+int sumAll(int[] v) { int s = 0; for (int i = 0 to v.length - 1; i++) s += v[i]; return s; }
+void notice(String m) { println(">> ", m); }
+
+int withFinally() {
+    try { return 10; }
+    finally { println("   (finally ran before the return)"); }
+}
+
+// ---------- main program ----------
+void main() {
+    println("=== ", title, " | global area = ", area, " | counter = ", counter);
+
+    // primitive types and operators
+    int a = 17, b = 5;
+    float f = 7 / 2.0;
+    char c = 'A';  c++;
+    bool ok = a > b && !(b == 0) || false;
+    println(a / b, " ", a % b, " ", f, " ", c, " ", ok, " ", a << 2, " ", a >> 1,
+            " ", (a & b), " ", (a | b), " ", (a ^ b), " ", ~b);
+    println((int) 9.99, " ", (float) a / b, " ", sqrt(16), " ", (a > b ? "bigger" : "smaller"));
+    a += 3; a -= 1; a *= 2; a /= 4; a %= 7;
+    println("a = ", a);
+
+    // strings
+    String s = "adaC" + " " + 3 + '!' + true;
+    println(s, " | len=", s.length(), " | ", s.charAt(0), " | ", s.substring(0, 5),
+            " | idx=", s.indexOf("3"), " | ", s.equals("x"), " | ", s == "adaC 3!true");
+    println(toInt("42") + 1, " ", toFloat("2.5") * 2, " ", toString(99) + "%");
+
+    // printf
+    printf("printf: %d | %.3f | %c | %s | %x | %p | %b | 100%%\n", 255, PI, 'z', "txt", 255, 4096, true);
+
+    // loops: every form
+    for (int i = 0 to 2; i++) print("to", i, " ");
+    for (int i to 2; i++) print("dflt", i, " ");
+    for (int i = 0; i <= 2; i++) print("c", i, " ");
+    int k = 0;
+    for (_; k <= 2; k++) print("pre", k, " ");
+    for (int _; j <= 2; j++) print("impl", j, " ");
+    println();
+    int w = 0;
+    while (w < 10) { w++; if (w % 2 == 0) continue; if (w > 7) break; print(w, " "); }
+    do { w--; } while (w > 5);
+    println("| w=", w);
+    for (int i to 5; i++)
+        if (i == 4) break;           // body without braces
+        else print("x", i, " ");
+    println();
+
+    // arrays and functions
+    int[] v = new int[MAX + 2];
+    for (int i = 0 to v.length - 1; i++) v[i] = factorial(i + 1);
+    println("v sum=", sumAll(v), " len=", len(v), " v[4]=", v[4]);
+
+    // OOP: polymorphism, cast, overloading
+    Shape[] shapes = new Shape[3];
+    shapes[0] = new Circle(1);
+    shapes[1] = new Rectangle(2, 3);
+    shapes[2] = new Shape();
+    shapes[2].move(1); shapes[2].move(1, 2);
+    for (int i = 0 to 2; i++) println(shapes[i].describe());
+    Circle ci = (Circle) shapes[0];
+    println("circle radius = ", ci.r, " | tag = ", shapes[0].tag);
+
+    // exceptions: try/catch/finally, throw, subclasses
+    try {
+        Rectangle bad = new Rectangle(-1, 5);
+        println("not reached");
+    } catch (GeometryError e) {
+        println("caught: ", e.getMessage(), " code=", e.code);
+    } finally {
+        println("finally 1");
+    }
+    try {
+        try { throw new RuntimeException("inner"); }
+        finally { println("inner finally"); }
+    } catch (Exception e) {
+        println("outer: ", e.message);
+    }
+    int r = withFinally();
+    println("withFinally = ", r);
+
+    // garbage collector: ~6 MB of throwaway strings/objects; the collector recycles everything
+    String big = "x";
+    for (int i = 0 to 9) big = big + big;        // 1024 bytes
+    int total = 0;
+    for (int i = 0 to 5999) {
+        Shape junk = new Circle(i);
+        String t = big + i;
+        total += t.length();
+    }
+    println("GC ok, total=", total);
+
+    // input
+    print("Type an integer: ");  int n = read();
+    print("Type a real number: ");  float x = read();
+    print("Type your name: ");  String who = read();
+    println(who, ": ", n, "! = ", factorial(n), " | x*2 = ", x * 2);
+    notice("end");
+}

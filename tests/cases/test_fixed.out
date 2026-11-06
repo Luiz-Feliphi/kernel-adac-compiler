@@ -1,0 +1,16 @@
+Luiz
+21
+area = 12.56636
+printf: 42, 2.500000, c, text, 0x1000 and ff
+Type an age: age (21) >= age2 (7)
+a0 a1 a2 a3 
+b0 b1 b2 b3 
+c0 c1 c2 
+d0 d1 d2 
+e0 e1 e2 
+age > age2
+*p = 20, *(p<<1) = 10
+method of goodClass
+1 300 4 20
+Y: failure of type Y
+finally always runs

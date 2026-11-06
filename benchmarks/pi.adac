@@ -1,0 +1,5 @@
+void main() {
+    float s = 0;  float sg = 1.0;
+    for (int k = 0; k < 20000000; k++) { s += sg / (2 * k + 1); sg = -sg; }
+    printf("%.6f\n", s * 4);
+}

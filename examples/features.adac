@@ -1,0 +1,62 @@
+// switch/case, instanceof, array literals, for-each, abs/min/max/pow
+class Animal { }
+class Dog extends Animal { }
+class Cat extends Animal { }
+
+String dayName(int d) {
+    switch (d) {
+        case 1: return "sunday";
+        case 2: return "monday";
+        case 7: return "saturday";
+        default: return "ordinary day";
+    }
+    return "";
+}
+
+int points(char grade) {
+    int p = 0;
+    switch (grade) {
+        case 'A': p += 10;          // no break: falls through to the next case (like C/Java)
+        case 'B': p += 5; break;
+        case 'C': p = 1; break;
+        default: p = -1;
+    }
+    return p;
+}
+
+void main() {
+    for (int d = 1; d <= 7; d += 3) println(d, " = ", dayName(d));
+    println(points('A'), " ", points('B'), " ", points('C'), " ", points('Z'));
+
+    String cmd = "stop";
+    switch (cmd) {
+        case "go": println("going"); break;
+        case "stop": println("stopping"); break;
+        default: println("?");
+    }
+    for (int i = 0 to 3; i++) {                  // continue inside a switch affects the loop
+        switch (i) {
+            case 1: continue;
+            case 3: break;
+            default: print("i=", i, " ");
+        }
+    }
+    println();
+
+    int[] v = {5, -3, 9, 2};
+    float[] f = {1, 2.5, 3};                     // ints become floats
+    String[] names = new String[]{"ann", "bea", "carl"};
+    int biggest = v[0], smallest = v[0];
+    for (int x : v) { biggest = max(biggest, x); smallest = min(smallest, x); }
+    println("biggest=", biggest, " smallest=", smallest, " abs(-7)=", abs(-7), " abs(-2.5)=", abs(-2.5));
+    float sum = 0;
+    for (float y : f) sum += y;
+    println("sum f=", sum, " pow(2,10)=", pow(2, 10), " pow(2,-2)=", pow(2, -2));
+    for (String n : names) print(n.substring(0, 1), n.length(), " ");
+    println();
+
+    Animal[] pets = {new Dog(), new Cat(), new Dog()};
+    int dogs = 0;
+    for (Animal a : pets) if (a instanceof Dog) dogs++;
+    println("dogs=", dogs, " | first is Cat? ", pets[0] instanceof Cat, " | is Animal? ", pets[0] instanceof Animal);
+}

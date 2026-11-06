@@ -1,0 +1,101 @@
+// NOTE: this is a syntax catalogue (the original test.adac translated to English).
+// It contains, on purpose, constructs the language defines as ERRORS, so the
+// compiler is expected to REJECT this file. See test_fixed.adac for a compilable version.
+String name = "Luiz"; // String is a variable that supports phrases, like Java's String
+int age = 20;
+int age2 = 20;
+const PI = (float) 3.14159; // a const cast to float: it must stay constant and, being a float, memory must treat it with floating-point care
+
+age = age+1;
+area = PI * (2 * 2);
+#NOT_GARBAGE// by default the language has a garbage collector, but with this directive the compiler will not use it and the programmer manages memory like free(); or malloc(); in C
+#definePackage: goodClass, goodClass2;
+// the , is used for concatenation and for including things
+// we also have << and >> to move pointers
+void main(){
+    // comma is concatenation
+    /*
+        we have comment blocks, and the language is compiled straight to a .exe in machine code, never to C code that has to be compiled again
+    */
+    print(name,"\n",age);
+    println(area);
+    printf("Here we also have printf with %d,%f,%c,%s,%p and %x among others");
+    age2 = read();// here is the input prompt
+    if(age>=age2){
+        print("Hola mundo");
+        age += 1;
+    }
+    for(int i=0 to 10; i++){
+        print("hello word");
+    }
+    // both are valid for the for loop: 'to' means i starts at 0 and is the same as "i<=10"
+    for(int i=0;i<=10;i++){
+        print("hello word");
+    }
+    // if the user wants a for that only shows the end, like below
+    for( _; i<=10; i++){
+        // here i starts at 0 (initial value is always 0) and it only goes until the end
+        println("Hello World");
+    }
+    for(int _; i<=10; i++){
+        // here the variable i is declared inside the for itself and is cleaned up when the for ends
+        // without the int, i must be declared beforehand as "int i = 0;"
+        println("Hello World");
+    }
+    // braces are optional, for the if and the else too
+    for(int i to 10;i++)
+        print("hello Word");
+    for(int i=0; i<=10;i++)
+        print("hello Word");
+    // only the first statement is obeyed
+
+    // the same happens with if
+    if(age<=age2)
+        print("hello Word");
+    // the stopping point is the ;
+
+    /*
+        the language has object orientation; the class does not need to match the file name, but it must not be inside a void function
+    */
+    public class wrongClass{
+        // a class must not be here: it is inside a function
+    }
+    setMen(variable);// setMen is like malloc(); it requires #NOT_GARBAGE to disable the garbage collector
+
+    push_back(variable);//
+
+    freeMEM(variable);
+    // if the function is void it automatically returns nothing
+
+    try {
+        // code that may raise an exception
+    } catch (XException ex) {
+        // handler for XException or any of its subclasses, identified here by ex
+    } catch (YException ey) {
+        // handler for YException or any of its subclasses
+    } finally {
+        // always runs after the try block, whether it ended normally or not
+    }
+}
+
+public class goodClass{
+    // a class may be here: it is not inside main
+    public methodName(){
+        // here methods are declared; a method must be inside a class
+        // to declare the package use "#definePackage: goodClass, goodClass2" to list the classes you want to expose
+    }
+}
+public class goodClass2{
+    public int methodName(){
+
+    }
+    private int methodName(){
+
+    }
+    protected int methodName(){
+
+    }
+    package int methodName(){ // default (no keyword) as in Java
+
+    }
+}

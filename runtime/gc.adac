@@ -1,0 +1,116 @@
+// ============================================================================
+//  DEFAULT mode: conservative mark-and-sweep garbage collector.
+//
+//  Every allocation has a 16-byte header:  [next block][size<<2 | atomic<<1 | mark]
+//  Roots: global variables (.data section) and the whole stack. Any word that
+//  is the start address of a block counts as a reference. "Atomic"
+//  blocks (strings) are not scanned inside.
+// ============================================================================
+int __gc_head;  int __gc_bytes;  int __gc_limit;  int __gc_busy;
+
+void __gc_init() { __gc_limit = 4194304; }
+
+void __gc_ins(int tbl, int cap, int key) {
+    int h = (key >> 4) & (cap - 1);
+    while (__peek64(tbl + h * 8) != 0) h = (h + 1) & (cap - 1);
+    __poke64(tbl + h * 8, key);
+}
+
+int __gc_find(int tbl, int cap, int key) {          // returns the block header or 0
+    int h = (key >> 4) & (cap - 1);
+    while (true) {
+        int e = __peek64(tbl + h * 8);
+        if (e == 0) return 0;
+        if (e == key) return key - 16;
+        h = (h + 1) & (cap - 1);
+    }
+}
+
+int __gc_scan(int from, int to, int tbl, int cap, int stk, int sp) {
+    int a = from;
+    while (a < to) {
+        int w = __peek64(a);
+        if (w != 0 && (w & 15) == 0) {
+            int blk = __gc_find(tbl, cap, w);
+            if (blk != 0) {
+                int meta = __peek64(blk + 8);
+                if ((meta & 1) == 0) {
+                    __poke64(blk + 8, meta | 1);
+                    __poke64(stk + sp * 8, blk);
+                    sp++;
+                }
+            }
+        }
+        a = a + 8;
+    }
+    return sp;
+}
+
+void __gc_collect() {
+    __gc_busy = 1;
+    int count = 0;
+    int b = __gc_head;
+    while (b != 0) { count++; b = __peek64(b); }
+    if (count == 0) { __gc_busy = 0; return; }
+    int cap = 16;
+    while (cap < count * 2) cap = cap * 2;
+    int tbl = __winapi(5, __heap, 8, cap * 8);
+    int stk = __winapi(5, __heap, 0, count * 8 + 8);
+    b = __gc_head;
+    while (b != 0) { __gc_ins(tbl, cap, b + 16); b = __peek64(b); }
+
+    int sp = 0;
+    sp = __gc_scan(__gbegin(), __gend(), tbl, cap, stk, sp);          // globals
+    sp = __gc_scan(__sp(), __stack_base + 8, tbl, cap, stk, sp);      // stack
+    while (sp > 0) {                                                  // propagation
+        sp--;
+        int blk = __peek64(stk + sp * 8);
+        int meta = __peek64(blk + 8);
+        if ((meta & 2) == 0) {
+            int size = (meta >> 2) & -8;
+            sp = __gc_scan(blk + 16, blk + 16 + size, tbl, cap, stk, sp);
+        }
+    }
+
+    int prev = 0;                                                     // sweep
+    int live = 0;
+    b = __gc_head;
+    while (b != 0) {
+        int next = __peek64(b);
+        int meta = __peek64(b + 8);
+        if ((meta & 1) != 0) {
+            __poke64(b + 8, meta & -2);
+            live = live + (meta >> 2) + 16;
+            prev = b;
+        } else {
+            if (prev == 0) __gc_head = next; else __poke64(prev, next);
+            __winapi(6, __heap, 0, b);
+        }
+        b = next;
+    }
+    __winapi(6, __heap, 0, tbl);
+    __winapi(6, __heap, 0, stk);
+    __gc_bytes = live;
+    __gc_limit = live * 2;
+    if (__gc_limit < 4194304) __gc_limit = 4194304;
+    __gc_busy = 0;
+}
+
+int __alloc_raw(int n, int atomic) {
+    if (__gc_bytes >= __gc_limit && __gc_busy == 0) __gc_collect();
+    int total = n + 16;
+    int blk = __winapi(5, __heap, 8, total);
+    if (blk == 0) {
+        __gc_collect();
+        blk = __winapi(5, __heap, 8, total);
+        if (blk == 0) __die("out of memory");
+    }
+    __poke64(blk, __gc_head);
+    __poke64(blk + 8, (n << 2) | (atomic << 1));
+    __gc_head = blk;
+    __gc_bytes = __gc_bytes + total;
+    return blk + 16;
+}
+int  __alloc(int n) { return __alloc_raw(n, 0); }
+int  __alloc_atomic(int n) { return __alloc_raw(n, 1); }
+void __free(int p) { }
